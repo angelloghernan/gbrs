@@ -5,8 +5,6 @@ use ArithOperand::*;
 
 pub type InstructionOps = [MicroOp; 8];
 
-pub type MemIndex = u16;
-
 pub const INSTRUCTION_MICRO_OPS: [InstructionOps; 256] = [
     [Nop, End, Nop, Nop, Nop, Nop, Nop, Nop], 
     [Nop, ReadImmR8(C), ReadImmR8(B), End, Nop, Nop, Nop, Nop],
@@ -525,7 +523,7 @@ pub const EXTENDED_INSTRUCTION_OPS: [InstructionOps; 256] = [
     [Set(7, ExtOperand::Reg(A)), End, Nop, Nop, Nop, Nop, Nop, Nop],
 ];
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum MicroOp {
     Nop,
     Daa,
@@ -593,7 +591,7 @@ pub enum MicroOp {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RegisterName16 {
     AF = 0,
     BC = 1,
@@ -604,7 +602,7 @@ pub enum RegisterName16 {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RegisterName8 {
     A = 0,
     F = 1,
@@ -621,7 +619,7 @@ pub enum RegisterName8 {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Flag {
     Zero = 7,
     Subtraction = 6,
@@ -630,7 +628,7 @@ pub enum Flag {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ArithOperand {
     Reg(RegisterName8),
     HLIndirect,
@@ -638,14 +636,14 @@ pub enum ArithOperand {
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ExtOperand {
     Reg(RegisterName8),
     HLIndirect
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ImmType {
     HighImm,
     HighImmPlusC,

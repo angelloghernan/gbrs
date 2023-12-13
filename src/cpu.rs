@@ -8,23 +8,34 @@ use crate::micro_ops::InstructionOps;
 use crate::micro_ops::Flag;
 use crate::micro_ops::INSTRUCTION_MICRO_OPS;
 use crate::micro_ops::EXTENDED_INSTRUCTION_OPS;
-use crate::micro_ops::MemIndex;
 use crate::micro_ops::ImmType;
 use crate::micro_ops::ExtOperand;
 use crate::micro_ops::ArithOperand;
 
+#[derive (Debug)]
 pub struct Cpu {
     pub registers: Registers,
     pub memory: Memory,
-    pub fetched_value: u8,
     pub instr_complete: bool,
     pub cur_micro_ops: &'static InstructionOps,
     pub micro_op_index: u8,
     pub ime: bool,
-    indirect: u16,
+    pub fetched_value: u8,
 }
 
 impl Cpu {
+    pub fn new() -> Self {
+        Self {
+            registers: Registers::new(),
+            memory: Memory::new(),
+            instr_complete: false,
+            cur_micro_ops: &INSTRUCTION_MICRO_OPS[0],
+            micro_op_index: 0,
+            fetched_value: 0,
+            ime: false,
+        }
+    }
+
     pub fn fetch(&mut self) {
         let pc = self.registers.get_mut_16(RegisterName16::PC);
 
@@ -40,7 +51,7 @@ impl Cpu {
         self.cur_micro_ops = &INSTRUCTION_MICRO_OPS[self.fetched_value as usize];
     }
 
-    fn step(&mut self) {
+    pub fn step(&mut self) {
         use MicroOp::*;
         use RegisterName8::*;
         use RegisterName16::*;
@@ -206,6 +217,7 @@ impl Cpu {
             }
             JmpRelativeI8 => {
                 let amt = self.get_imm() as i8;
+                println!("Jump by {}", amt);
                 let pc = *self.registers.get_16(PC);
                 *self.registers.get_mut_16(PC) = pc.wrapping_add_signed(amt.into());
             }
@@ -248,8 +260,9 @@ impl Cpu {
                 }
             }
             FetchExtended => self.fetch_extended(),
+            Stop => panic!("Stop not yet implemented"),
+            Halt => panic!("Halt not yet implemented"),
             End => panic!("Should not reach here"),
-            _ => unimplemented!("Op not yet implemented"),
         }
     }
 
@@ -554,6 +567,20 @@ pub struct Memory {
     mem: [u8; 0x10000],
 }
 
+impl std::fmt::Debug for Memory {
+    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        Ok(())
+    }
+}
+
+impl Memory {
+    pub fn new() -> Self {
+        Self {
+            mem: [0; 0x10000],
+        }
+    }
+}
+
 impl Index<u16> for Memory {
     type Output = u8;
 
@@ -579,6 +606,42 @@ pub struct Registers {
 }
 
 impl Registers {
+    pub fn new() -> Self {
+        Self {
+            registers: [0x0100, 0xFF13, 0x00C1, 0x8403, 0xFFFE, 0x0100],
+        }
+    }
+}
+
+impl std::fmt::Debug for Registers {
+    fn fmt(&self, form: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let a = self.get_8(RegisterName8::A);
+        let f = self.get_8(RegisterName8::F);
+        let b = self.get_8(RegisterName8::B);
+        let c = self.get_8(RegisterName8::C);
+        let d = self.get_8(RegisterName8::D);
+        let e = self.get_8(RegisterName8::E);
+        let h = self.get_8(RegisterName8::H);
+        let l = self.get_8(RegisterName8::L);
+        let sp = self.get_16(RegisterName16::SP);
+        let pc = self.get_16(RegisterName16::PC);
+        form.debug_struct("Registers")
+            .field("A", &a)
+            .field("F", &f)
+            .field("B", &b)
+            .field("C", &c)
+            .field("D", &d)
+            .field("E", &e)
+            .field("H", &h)
+            .field("L", &l)
+            .field("SP", &sp)
+            .field("PC", &pc)
+            .finish()?;
+        Ok(())
+    }
+}
+
+impl Registers {
     pub fn get_16(&self, reg: RegisterName16) -> &u16 {
         &self.registers[reg as usize]
     }
@@ -588,7 +651,7 @@ impl Registers {
     }
 
     pub fn get_8(&self, reg: RegisterName8) -> u8 {
-        if (reg as usize) & 1 != 0 {
+        if (reg as usize) % 2 == 0 {
             (self.registers[reg as usize / 2] >> 8) as u8
         } else {
             self.registers[reg as usize / 2] as u8
@@ -596,11 +659,12 @@ impl Registers {
     }
 
     pub fn set_8(&mut self, reg: RegisterName8, val: u8) {
-        let val = self.registers[reg as usize];
-        if (reg as usize) & 1 != 0 {
-            self.registers[reg as usize / 2] = (val & 0xFF) | ((val as u16) << 8);
+        let prev_val = self.registers[reg as usize / 2];
+        let val = val as u16;
+        if (reg as usize) % 2 == 0 {
+            self.registers[reg as usize / 2] = (prev_val & 0xFF) | val << 8;
         } else {
-            self.registers[reg as usize / 2] = (val & 0xFF00) | (val as u16);
+            self.registers[reg as usize / 2] = (prev_val & 0xFF00) | val;
         }
     }
 
