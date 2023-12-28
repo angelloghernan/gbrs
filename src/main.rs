@@ -1,4 +1,5 @@
 mod cpu;
+mod ppu;
 mod micro_ops;
 
 use cpu::Cpu;
@@ -39,6 +40,15 @@ fn main() -> io::Result<()> {
     for (i, &byte) in buffer.iter().enumerate() {
         cpu.memory[i as u16] = byte;
     }
+    
+    let boot_file = File::open("dmg_boot.bin")?;
+    let mut reader = BufReader::new(boot_file);
+    let mut buffer = Vec::new();
+    reader.read_to_end(&mut buffer)?;
+    for (i, &byte) in buffer.iter().enumerate() {
+        cpu.memory[i as u16] = byte;
+    }
+
     let mut s = String::new();
 
     let sdl_context = sdl2::init().unwrap();
