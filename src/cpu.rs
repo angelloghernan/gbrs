@@ -429,7 +429,7 @@ impl Cpu {
 
     fn bit(&mut self, b: u8, oper: ExtOperand) {
         let val = self.eval_ext_operand(oper);
-        self.registers.assign_flag(Flag::Zero, val & (1 << b) > 0);
+        self.registers.assign_flag(Flag::Zero, val & (1 << b) == 0);
         self.registers.clear_flag(Flag::Subtraction);
         self.registers.set_flag(Flag::HalfCarry);
     }
@@ -513,9 +513,9 @@ impl Cpu {
         let carry = sum < lhs_val;
 
         self.set_ext_operand(op, sum);
-        self.registers.clear_flag(Flag::Carry);
+        self.registers.assign_flag(Flag::Carry, carry);
         self.registers.clear_flag(Flag::Subtraction);
-        self.registers.set_flag(Flag::HalfCarry);
+        self.registers.assign_flag(Flag::HalfCarry, half_carry);
         self.registers.assign_flag(Flag::Zero, sum == 0);
     }
 
@@ -527,8 +527,9 @@ impl Cpu {
         let carry = sum < lhs_val;
         
         self.set_ext_operand(op, lhs_val);
-        self.registers.clear_flag(Flag::Carry);
+        self.registers.assign_flag(Flag::Carry, carry);
         self.registers.clear_flag(Flag::Subtraction);
+        self.registers.assign_flag(Flag::HalfCarry, half_carry);
         self.registers.assign_flag(Flag::Zero, sum == 0);
     }
 
@@ -608,7 +609,7 @@ pub struct Registers {
 impl Registers {
     pub fn new() -> Self {
         Self {
-            registers: [0x0100, 0xFF13, 0x00C1, 0x8403, 0xFFFE, 0x0100],
+            registers: [0x0100, 0xFF13, 0x00C1, 0x8403, 0xFFFE, 0x0000],
         }
     }
 }
@@ -685,7 +686,7 @@ impl Registers {
     pub fn set_flag(&mut self, flag: Flag) {
         let mut f = self.get_8(RegisterName8::F);
 
-        f |= flag as u8;
+        f |= 1 << (flag as u8);
 
         self.set_8(RegisterName8::F, f);
     }
@@ -693,7 +694,7 @@ impl Registers {
     pub fn clear_flag(&mut self, flag: Flag) {
         let mut f = self.get_8(RegisterName8::F);
 
-        f &= !(flag as u8);
+        f &= !(1 << (flag as u8));
 
         self.set_8(RegisterName8::F, f);
     }
