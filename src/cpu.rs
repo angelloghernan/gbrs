@@ -21,6 +21,7 @@ pub struct Cpu {
     pub micro_op_index: u8,
     pub ime: bool,
     pub fetched_value: u8,
+    pub stored_value: u16,
 }
 
 impl Cpu {
@@ -32,8 +33,14 @@ impl Cpu {
             cur_micro_ops: &INSTRUCTION_MICRO_OPS[0],
             micro_op_index: 0,
             fetched_value: 0,
+            stored_value: 0,
             ime: false,
         }
+    }
+
+    pub fn next_byte(&self) -> u8 {
+        let pc = self.registers.get_16(RegisterName16::PC);
+        self.memory[*pc]
     }
 
     pub fn fetch(&mut self) {
@@ -85,6 +92,10 @@ impl Cpu {
             Bit(b, op) => self.bit(b, op),
             Res(b, op) => self.res(b, op),
             Set(b, op) => self.set(b, op),
+            Fetch16 => {
+                self.stored_value = self.get_imm_16_const();
+                *self.registers.get_mut_16(RegisterName16::PC) += 2;
+            }
             ReadAHLPlus => {
                 let val = self.get_ind(HL);
                 self.read_r8(A, val);
@@ -208,8 +219,7 @@ impl Cpu {
             PushR8(r8) => self.push_r8(r8),
             PushR8CallU16(r8) => {
                 self.push_r8(r8);
-                let imm = self.get_imm_16_const();
-                *self.registers.get_mut_16(PC) = imm;
+                *self.registers.get_mut_16(PC) = self.stored_value;
             }
             PushR8CallConst(r8, vector) => {
                 self.push_r8(r8);
@@ -259,6 +269,11 @@ impl Cpu {
                     *self.registers.get_mut_16(PC) += 2;
                 }
             }
+            WriteImmHLInd => {
+                let imm = self.get_imm();
+                let hl = *self.registers.get_16(RegisterName16::HL);
+                self.memory[hl] = imm;
+            }
             FetchExtended => self.fetch_extended(),
             Stop => panic!("Stop not yet implemented"),
             Halt => panic!("Halt not yet implemented"),
@@ -278,7 +293,7 @@ impl Cpu {
         let imm1 = self.memory[pc];
         let imm2 = self.memory[pc + 1];
 
-        u16::from_le_bytes([imm2, imm1])
+        u16::from_le_bytes([imm1, imm2])
     }
 
     fn eval_arith_op(&mut self, arith_op: ArithOperand) -> u8 {
@@ -525,8 +540,8 @@ impl Cpu {
         let half_carry = ((lhs_val & 0xF).wrapping_sub(rhs_val & 0xF)) & 0x10 == 0x10;
         let sum = lhs_val.wrapping_sub(rhs_val).wrapping_sub(use_carry as u8 & c as u8);
         let carry = sum < lhs_val;
-        
-        self.set_ext_operand(op, lhs_val);
+
+        self.set_ext_operand(op, sum);
         self.registers.assign_flag(Flag::Carry, carry);
         self.registers.clear_flag(Flag::Subtraction);
         self.registers.assign_flag(Flag::HalfCarry, half_carry);
@@ -672,7 +687,7 @@ impl Registers {
     pub fn check_flag(&self, flag: Flag) -> bool {
         let f = self.registers[RegisterName8::F as usize / 2] as u8;
 
-        f & (flag as u8) > 0
+        f & (1 << (flag as u8)) > 0
     }
 
     pub fn assign_flag(&mut self, flag: Flag, set: bool) {
